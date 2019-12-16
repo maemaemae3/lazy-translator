@@ -46,26 +46,23 @@ function getSelected() {
  * 
  * @param {String} text 
  */
-function getTranslateApiRes(text) {    
+function getTranslateApiRes(text) {
     const url = api_url;
-    const body = JSON.stringify({ text: text });
-    const headers = {
-        'Accept'      : 'application/json',
-        'Content-Type': 'application/json'
-    };
+    const body = text;
+    const headers = { 'Content-Type': 'text/plain' };
     
     return new Promise(async resolve => {
         if (!getSelected()) { return; }
         
         try {
             const response = await fetch(url, { method:"POST", headers, body });
-            const res_json = await response.json();
+            const result   = await response.text();
             document.getElementById("simple_translate_addon_area").classList.add("staa-_-api_translated");
             const translated = document.createElement("span");
-            translated.innerText = res_json.result;
+            translated.innerText = result;
             translated.classList.add("staa-_-mean");
             resolve([translated]);
-        } catch {
+        } catch (e) {
             const error     = document.createElement("span");
             error.innerText = "Error! something went wrong with translate api.";
             error.classList.add("staa-_-error");

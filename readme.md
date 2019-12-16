@@ -37,7 +37,7 @@ $ npm install webpack -g
 $ npx webpack
 ```
 
-## firefox用パッケージの作成
+## パッケージの作成
 
 ※ `proj` ディレクトリに移動して行って下さい
 
@@ -48,10 +48,6 @@ $ web-ext build
 
 上記を実行すると、 `web-ext-artifacts` にパッケージが生成されているはずです
 バージョン番号や説明、タイトルの変更などはmanifest.jsonをいじるなりして行えます
-
-## chrome用パッケージの作成
-
-作成中
 
 # License
 

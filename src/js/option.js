@@ -35,27 +35,23 @@ async function register(e) {
  */
 async function registerScriptUrl() {
     const url = document.getElementById("staa-_-script_url").value;
-    const body = JSON.stringify({ text: "test" });
-    const headers = {
-        'Accept'      : 'application/json',
-        'Content-Type': 'application/json'
-    };
+    const body = "test";
+    const headers = { 'Content-Type': 'text/plain' };
     
-    await new Promise(async resolve => {
-        fetch(url, { method:"POST", headers, body })
-        .then(res => res.json())
-        .then(json => {
-            if (json.result) {
+    await new Promise(async resolve => {        
+        try {
+            const response = await fetch(url, { method:"POST", headers, body });
+            const result   = await response.text();
+            if (result === "テスト") {
                 chrome.storage.local.set({translate_api_url: url}, () => {
                     document.getElementById("staa-_-script_url_status").textContent = "register success!";
                 });
             } else {
                 document.getElementById("staa-_-script_url_status").textContent = "register failed. maybe url or parameter of script is wrong.";
             }
-        })
-        .catch((e) => {
+        } catch (e) {
             document.getElementById("staa-_-script_url_status").textContent = "error occured (" + e + "). something is wrong";
-        });
+        }
     });
 }
 
