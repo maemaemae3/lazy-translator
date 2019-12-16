@@ -1,0 +1,22 @@
+{
+  "name": "lazy-translator",
+  "version": "1.0.0",
+  "description": "translate & lookup dictionary easily of selected texts",
+  "private": true,
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "translation",
+    "extension"
+  ],
+  "author": "tempe",
+  "license": "MIT",
+  "devDependencies": {
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.10"
+  },
+  "dependencies": {
+    "encoding-japanese": "^1.0.30"
+  }
+}

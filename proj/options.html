@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+</head>
+
+<body>
+    <h2>Register dictionary(英辞郎・ejdicデータ)</h2>
+
+    <div>
+        Select dictionary file encoding: 
+        <select id="staa-_-encoding">
+            <option value="UTF8">UTF-8</option>
+            <option value="SJIS">Shift-JIS</option>
+        </select>
+        <br>
+        Select dictionary file: 
+        <input type="file" id="staa-_-dic"><br>
+    
+        <span id="staa-_-status"> </span>
+        <span id="staa-_-progress"> </span>
+    </div>
+    
+    <h2>translate API settings</h2>
+    <div>
+        <input size="80" id="staa-_-script_url"></input><br>
+        <button id="staa-_-register_script_btn">set translate script url</button><br>
+        <span id="staa-_-script_url_status"></span>
+    </div>
+    <script src="./js/option.js"></script>
+
+</body>
+</html>
