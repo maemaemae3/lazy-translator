@@ -9,11 +9,14 @@
 
 ![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/264764/906e8156-416f-8907-1a80-689d68ba33e3.png)
 
-- chromeの場合
-アイコンを右クリックし、オプションを開く
+- chromeの場合  
+アイコンを右クリックし、オプションを開く  
+
   ![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/264764/33fd33ae-7f2b-9e0d-cd78-4e3da9cf911b.png)
-- Firefoxの場合
-アドレスバーに `about:addons`と入力後、オプションを開く
+  
+- Firefoxの場合  
+アドレスバーに `about:addons`と入力後、オプションを開く  
+
 ![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/264764/06e2c2ec-320a-db1d-98ff-9af54de18e69.png)
 
 ### 📖辞書データの登録
@@ -23,22 +26,18 @@
 1. 辞書データを選択します  
    ※ 選択した時点で登録が開始します
 2. 暫く待つと登録が完了します  
-   ※ 登録を終えるまでウィンドウをアクティブなままにしておくことをおすすめします  
-   　 作者がサボって上手いことやっていないので、別のウィンドウをアクティブにすると  
-   　 登録作業が極端に遅くなる可能性があります
 3. 単語を選択すると、辞書に載っていた場合にその意味を表示できます
 
 ### 🏳️‍🌈翻訳機能
 
 
-1. Google App Scriptで翻訳スクリプトを作ります  
-   (https://qiita.com/3d8ceb5aa8a3bc78fcad を参照)  
+1. Google App Scriptで翻訳スクリプトを作ります(https://qiita.com/3d8ceb5aa8a3bc78fcad を参照)  
    (そのURLにリクエスト`翻訳対象`を送ると`翻訳結果`を返すものだったらGAS以外でも構いません)
-2. 実行URLをオプションページの**translate API settings**のテキストボックスに貼り付け、
+2. 実行URLをオプションページの**translate API settings**のテキストボックスに貼り付け、  
    **API動作テスト**ボタンを押下します
-3. テストが行われ、成功した場合にそのURLが登録されます
+3. テストが行われ、成功した場合にそのURLが登録されます  
    失敗した場合はその旨が表示されます
-4. 文章を選択すると、辞書に選択部分の単語が載っていなかった場合に翻訳を行い、その結果を表示します
+4. 文章を選択すると、辞書に選択部分の単語が載っていなかった場合に翻訳を行い、その結果を表示します  
    (英語以外も対応できるはずです)
 
 # build
