@@ -29,41 +29,41 @@ export default {
       apiUrl: ""
     };
   },
-  computed: {
-    dict_results() {
-      const unfolded = [];
-      for (let result of this.results_raw) {
-        for (let word of Object.keys(result)) {
-          console.log(word);
-        }
-      }
-    }
-  },
   mounted() {
     chrome.storage.local.get("translate_api_url", value => {
       if (value.translate_api_url) {
         this.apiUrl = value.translate_api_url;
       }
     });
-    document.addEventListener("mouseup", this.check);
     eventBus.$on("toggleMode", (data) => {
       this.show      = false;
       this.isEnabled = data.isEnabled;
     });
+    this.setListeners();
   },
   methods: {
+    setListeners() {
+      window.addEventListener("mouseup", () => {
+        const selectedString = this.getSelected()
+        this.check(selectedString);
+      });
+      window.addEventListener("message", e => {
+        if (e.data.extension === "lazyTranslator") {
+          this.check(e.data.selectedString);
+        }
+      });
+    },
     /**
      * check selected text and execute main function
      */
-    async check() {
+    async check(selectedString) {
       if (!this.isEnabled) { return; } // if disabled, do nothing
 
-      const sel_str = this.getSelected();
-      if (!sel_str) {
+      if (!selectedString) {
           this.show = false;
           return;
       }
-      const result = await this.searchDict(sel_str);
+      const result = await this.searchDict(selectedString);
       if (result) {
         this.resFromDict = [];
         this.mode = "dict";
@@ -71,7 +71,7 @@ export default {
         this.show = true;
       } else {
         this.mode = "translate";
-        await this.getFromTranslateApi(sel_str);
+        await this.getFromTranslateApi(selectedString);
         this.show = true;
       }
     },
@@ -79,12 +79,12 @@ export default {
      * get selected string
      */
     getSelected() {
-      const sel_str = window.getSelection().toString().toLowerCase().trim();
-      if (sel_str !== "") { return sel_str; }
-      else { return null; }
+      const selectedString = window.getSelection().toString().toLowerCase().trim();
+      if (selectedString) { return selectedString; }
+      return null;
     },
     /**
-     * @param {String} text 
+     * @param {String} text
      */
     async getFromTranslateApi(text) {
       try {
@@ -106,8 +106,8 @@ export default {
     },
     /**
      * fetch data from DB
-     * 
-     * @param {String} str 
+     *
+     * @param {String} str
      */
     searchDict(str) {
       return new Promise(resolve => chrome.storage.local.get(str, value => {
@@ -117,8 +117,8 @@ export default {
     },
     /**
      * get result from dictionary
-     * 
-     * @param {{normalized_word: [{word: word_info}]}} result 
+     *
+     * @param {{normalized_word: [{word: word_info}]}} result
      */
     async getFromDict(result) {
       for (let word of Object.keys(result)) {
@@ -156,7 +156,7 @@ export default {
   padding: 10px;
   margin: 10px;
   font-size: 12px;
-  font-family: sans-serif;
+  font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
   color: #000;
   background: rgba(240, 240, 240, 0.9);
   box-shadow: 0px 2px 3px rgba(0, 0, 0, 0.33);

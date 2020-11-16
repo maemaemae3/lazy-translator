@@ -7,7 +7,7 @@
     "unlimitedStorage",
     "<all_urls>"
   ],
-  "version": "0.0.1",
+  "version": "0.1.0",
   "manifest_version": 2,
   "icons": {
     "48": "icons/icon_48.png",
@@ -23,15 +23,10 @@
   },
   "content_scripts": [
     {
-      "matches": [
-          "<all_urls>"
-      ],
-      "js": [
-          "content_script.js"
-      ],
-      "css": [
-          "content_script.css"
-      ]
+      "matches": ["<all_urls>"],
+      "js": ["content_script.js"],
+      "css": ["content_script.css"],
+      "all_frames": true
     }
   ],
   "options_ui": {

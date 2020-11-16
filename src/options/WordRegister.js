@@ -9,7 +9,7 @@ export default class WordRegister {
 
   /**
    * parse string and register to chrome.storage
-   * 
+   *
    * @param {[String]} lines string data splitted by line break
    */
   async register(lines) {
@@ -33,7 +33,7 @@ export default class WordRegister {
 
   /**
    * parse string and create object
-   * 
+   *
    * @param {[String]} lines string data splitted by line break
    */
   makeRegData(lines) {
@@ -58,7 +58,7 @@ export default class WordRegister {
   /**
    * @param {String} reg_word word id
    * @param {String} word     display word
-   * @param {{variant: [{part: String, mean: String}]}} word_data 
+   * @param {{variant: [{part: String, mean: String}]}} word_data
    */
   assignDictData(reg_word, word, word_data) {
     if (this.reg_data[reg_word].hasOwnProperty(word)) {
@@ -69,7 +69,7 @@ export default class WordRegister {
   }
 
   /**
-   * @param {String} str 
+   * @param {String} str
    */
   parse(str) {
     // parse EIJIRO data
@@ -96,23 +96,23 @@ export default class WordRegister {
     }
     return [null, null];
   }
-  
+
   /**
    * convert "→str" to "<→str>"
-   * 
-   * @param {*} str 
+   *
+   * @param {*} str
    */
   setLinkEijiro(str) {
     if (/<→.+>/.test(str)) { return str; }
     return str.replace(/→.+/, s => "<" + s + ">");
   }
-  
+
   /**
    * remove whitespace from both end
    * convert "=str" to "<→str>"
    * return {"mean": str}
-   * 
-   * @param {*} str 
+   *
+   * @param {*} str
    */
   cleanseEjdic(str) {
     const trimmed = str.trim();

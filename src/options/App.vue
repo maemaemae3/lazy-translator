@@ -81,7 +81,7 @@ export default {
     async registerAPIUrl() {
       const body = "test";
       const headers = { 'Content-Type': 'text/plain' };
-    
+
       await new Promise(async resolve => {
           try {
               const response = await fetch(this.translateAPI.url, { method:"POST", headers, body });
@@ -131,14 +131,14 @@ export default {
       this.regWord.progress = progress ? progress : "";
     },
     /**
-     * @param {Event} e 
+     * @param {Event} e
      */
     async registerWord(e) {
       this.updateProgress("データを読み込み中");
 
       this.fileName = e.target.files[0].name;
       const reader  = new FileRead(e.target.files[0], this.encoding);
-      
+
       const browser    = navigator.userAgent;
       const chunk_size = (browser.indexOf("Chrome") > -1) ? 100000 : 1000;
       const wordReg    = new WordRegister(this.updateProgress, chunk_size);
@@ -270,7 +270,7 @@ table{
     background-color: #eee;
     padding: 10px 10px;
   }
-  
+
   #script-url {
     margin-bottom: 5px;
     width: 95%;
