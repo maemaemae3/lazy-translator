@@ -1,5 +1,5 @@
 {
-  "name": "lazytranslator",
+  "name": "LazyTranslator",
   "description": "translate & lookup dictionary easily of selected texts",
   "permissions": [
     "activeTab",
@@ -7,7 +7,7 @@
     "unlimitedStorage",
     "<all_urls>"
   ],
-  "version": "0.1.0",
+  "version": "1.2.0",
   "manifest_version": 2,
   "icons": {
     "48": "icons/icon_48.png",

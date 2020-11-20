@@ -1,9 +1,9 @@
 <template>
-  <div id="lazy_inner" :class="{show, 'mode-translate': (mode === 'translate'), 'mode-dict': (mode === 'dict')}">
+  <div ref="mainElement" id="lazy_inner" :class="{show, 'mode-translate': (mode === 'translate'), 'mode-dict': (mode === 'dict')}">
     <template v-if="mode === 'dict'">
       <div class="result" v-for="info of resFromDict" :key="'v-' + info.word">
         <span class="entry">{{ info.word }}</span>
-        <div class="info" v-for="mean of info.means" :key="mean.mean">
+        <div class="info" v-for="mean of info.mean" :key="mean.mean">
           <span v-if="mean.part" class="part">{{"\{"}}{{ mean.part }}{{"\}"}}</span> <span class="mean">{{ mean.mean }}</span>
         </div>
       </div>
@@ -16,6 +16,7 @@
 
 <script>
 import { eventBus } from "./content_script";
+import stemmer from "./stemmer";
 
 export default {
   data() {
@@ -63,15 +64,18 @@ export default {
           this.show = false;
           return;
       }
+
+      this.resetScroll();
+
       const result = await this.searchDict(selectedString);
       if (result) {
         this.resFromDict = [];
         this.mode = "dict";
-        await this.getFromDict(result);
+        await this.setResultFromDict(result);
         this.show = true;
       } else {
         this.mode = "translate";
-        await this.getFromTranslateApi(selectedString);
+        await this.setResultFromTranslateApi(selectedString);
         this.show = true;
       }
     },
@@ -86,12 +90,12 @@ export default {
     /**
      * @param {String} text
      */
-    async getFromTranslateApi(text) {
+    async setResultFromTranslateApi(text) {
       try {
-        const url       = (this.apiUrl !== "") ? this.apiUrl : "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ja&dt=t&q=" + encodeURI(text);
-        const body      = text;
-        const headers   = { "Content-Type": "text/plain" };
-        const response  = await fetch(url, { method:"POST", headers, body });
+        const url      = (this.apiUrl !== "") ? this.apiUrl : "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ja&dt=t&q=" + encodeURI(text);
+        const body     = text;
+        const headers  = { "Content-Type": "text/plain" };
+        const response = await fetch(url, { method:"POST", headers, body });
         if (this.apiUrl !== "") { this.translated = await response.text(); }
         else {
           const jsn = await response.json();
@@ -105,39 +109,61 @@ export default {
       return;
     },
     /**
+     * make word array to fetch from DB
+     *
+     * @param {String} str
+     */
+    makeSearchWords(str) {
+      if (str.split(" ").length !== 1) { return [str]; }
+      const stemmed = stemmer(str);
+      if (str === stemmed) { return [str]; }
+      return [str, stemmed];
+    },
+    /**
      * fetch data from DB
      *
      * @param {String} str
      */
-    searchDict(str) {
-      return new Promise(resolve => chrome.storage.local.get(str, value => {
-          if (Object.keys(value).length) { resolve(JSON.parse(value[str])); }
-          else { resolve(false); }
-      }));
+    async searchDict(str) {
+      const searchWords = this.makeSearchWords(str);
+      const values = await chrome.storage.local.get(searchWords); // { normalized: { display :[{ mean: "meaning1"}, { mean: "meaning2"}]}", ... }
+      if (Object.keys(values).length) {
+        return Object.values(values).map(e => JSON.parse(e));
+      }
+      return null;
     },
     /**
      * get result from dictionary
      *
-     * @param {{normalized_word: [{word: word_info}]}} result
+     * @param {[{display: [{mean: String}]}]} result
      */
-    async getFromDict(result) {
-      for (let word of Object.keys(result)) {
+    async setResultFromDict(results) {
+      for (const wordData of results) {
+      for (const word of Object.keys(wordData)) {
         this.resFromDict.push({
           word,
-          means: result[word]
+          mean: wordData[word]
         });
 
         // check for linked words
-        for (let info of result[word]) {
+        for (const info of wordData[word]) {
           const hasLinkedWord = info.mean.match(/<→(.+)>/);
           if (hasLinkedWord){
-            const linkWord       = hasLinkedWord[1];
-            const linkWordResult = await this.searchDict(linkWord);
-            await this.getFromDict(linkWordResult);
+            const linkedWord = hasLinkedWord[1];
+            const linkedWordResult = await this.searchDict(linkedWord);
+            if (!linkedWordResult) { continue; }
+            await this.setResultFromDict(linkedWordResult);
           }
         }
       }
+      }
       return;
+    },
+    /**
+     * reset scroll position of translator div
+     */
+    resetScroll() {
+      this.$refs.mainElement.scrollTop = 0;
     }
 
   }
