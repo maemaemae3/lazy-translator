@@ -17,6 +17,7 @@
 <script>
 import { eventBus } from "./content_script";
 import stemmer from "./stemmer";
+import singularizer from "./singularizer";
 
 export default {
   data() {
@@ -115,9 +116,12 @@ export default {
      */
     makeSearchWords(str) {
       if (str.split(" ").length !== 1) { return [str]; }
+      const words = [str];
       const stemmed = stemmer(str);
-      if (str === stemmed) { return [str]; }
-      return [str, stemmed];
+      if (!words.includes(stemmed)) { words.push(stemmed); }
+      const singularized = singularizer(str);
+      if (!words.includes(singularized)) { words.push(singularized); }
+      return words;
     },
     /**
      * fetch data from DB
@@ -126,7 +130,7 @@ export default {
      */
     async searchDict(str) {
       const searchWords = this.makeSearchWords(str);
-      const values = await chrome.storage.local.get(searchWords); // { normalized: { display :[{ mean: "meaning1"}, { mean: "meaning2"}]}", ... }
+      const values = await new Promise(resolve => chrome.storage.local.get(searchWords, resolve));
       if (Object.keys(values).length) {
         return Object.values(values).map(e => JSON.parse(e));
       }
