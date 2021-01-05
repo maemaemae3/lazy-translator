@@ -18,7 +18,7 @@
     "test": "npx jest"
   },
   "dependencies": {
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "encoding-japanese": "^1.0.30",
     "vue": "^2.6.11",
     "webextension-polyfill": "^0.6.0",
