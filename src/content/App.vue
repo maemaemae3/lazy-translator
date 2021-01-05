@@ -31,17 +31,24 @@ export default {
       apiUrl: ""
     };
   },
-  mounted() {
+  created() {
+    // check if extension is turned ON
+    chrome.storage.local.get("isExtensionOn", res => {
+      this.isEnabled = res.isExtensionOn == 1 ? true : false;
+    });
+    // get translate api settings
     chrome.storage.local.get("translate_api_url", value => {
       if (value.translate_api_url) {
         this.apiUrl = value.translate_api_url;
       }
     });
+    this.setListeners();
+  },
+  mounted() {
     eventBus.$on("toggleMode", (data) => {
       this.show      = false;
       this.isEnabled = data.isEnabled;
     });
-    this.setListeners();
   },
   methods: {
     setListeners() {
