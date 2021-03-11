@@ -51,18 +51,21 @@
 
 [vue-web-extension](https://github.com/Kocal/vue-web-extension)を使用しています
 
+## 依存関係のインストール
 ```shell
 $ npm install
-# Build the extension into dist folder for production.
-$ npm run build
-# Watch for modifications
-$ npm run watch:dev
 ```
 
-## パッケージの作成
-
+## 開発中
+ブラウザから `dist` ディレクトリを行うことで、ホットリロードしながら開発が行なえます。
 ```shell
-$ npm run build-zip
+$ npm run serve
+```
+
+## リリース時
+`artifacts` ディレクトリにリリース用のzipが生成されます。
+```shell
+$ npm run build
 ```
 
 # License

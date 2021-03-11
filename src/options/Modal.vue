@@ -79,7 +79,7 @@ button {
   text-decoration: none;
   margin: 2px 5px;
   padding: 2px 16px 2px 16px;
-  border-radius: 8px;
+  border-radius: 3px;
   transition: .2s;
   &:hover {
     background-color: $dic;

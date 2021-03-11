@@ -4,7 +4,7 @@ export default class FileRead {
   constructor(file, encoding) {
     this.file = file;
     this.file_size = file.size;
-    this.encoding = encoding ? encoding : null;
+    this.encoding = encoding || null;
   }
 
   async readFile() {
@@ -12,15 +12,15 @@ export default class FileRead {
     return new Promise((resolve, reject) => {
       const r = new FileReader();
 
-      r.onload = e => {
+      r.onload = (e) => {
         if (e.target.error) {
-          console.log("Read error: " + e.target.error);
-          reject("Read error: " + e.target.error);
+          console.log(`Read error: ${e.target.error}`);
+          reject(e);
           return;
         }
 
-        return resolve(e.target.result);
-      }
+        resolve(e.target.result);
+      };
 
       r.readAsText(this.file, this.encoding);
     });
@@ -31,16 +31,17 @@ export default class FileRead {
       const blob = this.file.slice(0, 1000); // use first 1KB to detect encoding
 
       const r = new FileReader();
-      r.onload = e => {
+      r.onload = (e) => {
         if (e.target.error) {
-          return reject("Read error: " + e.target.error);
+          return reject(e);
         }
         const codes = new Uint8Array(e.target.result);
         const encoding = Encoding.detect(codes);
-        if      (encoding === "UTF8") { return resolve("UTF-8"); }
-        else if (encoding === "SJIS") { return resolve("Shift_JIS"); }
-        else { return reject("Read error: can't detect encoding"); }
-      }
+        console.log(encoding);
+        if (encoding === 'UTF8') { return resolve('UTF-8'); }
+        if (encoding === 'SJIS') { return resolve('Shift_JIS'); }
+        return reject(new Error('Read error: can\'t detect encoding'));
+      };
       r.readAsArrayBuffer(blob);
     });
   }

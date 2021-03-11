@@ -15,9 +15,8 @@
 </template>
 
 <script>
-import { eventBus } from "./content_script";
-import stemmer from "./stemmer";
-import singularizer from "./singularizer";
+import stemmer from './stemmer';
+import singularizer from './singularizer';
 
 export default {
   data() {
@@ -26,38 +25,33 @@ export default {
       show: false,
       mode: null,
       resFromDict: [],
-      translated: "",
+      translated: '',
       apiError: false,
-      apiUrl: ""
     };
   },
   created() {
     // check if extension is turned ON
-    chrome.storage.local.get("isExtensionOn", res => {
-      this.isEnabled = res.isExtensionOn == 1 ? true : false;
-    });
-    // get translate api settings
-    chrome.storage.local.get("translate_api_url", value => {
-      if (value.translate_api_url) {
-        this.apiUrl = value.translate_api_url;
-      }
+    chrome.storage.local.get('isExtensionOn', (res) => {
+      this.isEnabled = res.isExtensionOn === 1;
     });
     this.setListeners();
   },
   mounted() {
-    eventBus.$on("toggleMode", (data) => {
-      this.show      = false;
-      this.isEnabled = data.isEnabled;
+    browser.runtime.onMessage.addListener((req) => {
+      if (req.func === 'toggleMode') {
+        this.show = false; // hide
+        this.isEnabled = req.data.isEnabled;
+      }
     });
   },
   methods: {
     setListeners() {
-      window.addEventListener("mouseup", () => {
-        const selectedString = this.getSelected()
+      window.addEventListener('mouseup', () => {
+        const selectedString = this.getSelected();
         this.check(selectedString);
       });
-      window.addEventListener("message", e => {
-        if (e.data.extension === "lazyTranslator") {
+      window.addEventListener('message', (e) => {
+        if (e.data.extension === 'lazyTranslator') {
           this.check(e.data.selectedString);
         }
       });
@@ -69,8 +63,8 @@ export default {
       if (!this.isEnabled) { return; } // if disabled, do nothing
 
       if (!selectedString) {
-          this.show = false;
-          return;
+        this.show = false;
+        return;
       }
 
       this.resetScroll();
@@ -78,11 +72,11 @@ export default {
       const result = await this.searchDict(selectedString);
       if (result) {
         this.resFromDict = [];
-        this.mode = "dict";
+        this.mode = 'dict';
         await this.setResultFromDict(result);
         this.show = true;
       } else {
-        this.mode = "translate";
+        this.mode = 'translate';
         await this.setResultFromTranslateApi(selectedString);
         this.show = true;
       }
@@ -100,21 +94,20 @@ export default {
      */
     async setResultFromTranslateApi(text) {
       try {
-        const url      = (this.apiUrl !== "") ? this.apiUrl : "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ja&dt=t&q=" + encodeURI(text);
-        const body     = text;
-        const headers  = { "Content-Type": "text/plain" };
-        const response = await fetch(url, { method:"POST", headers, body });
-        if (this.apiUrl !== "") { this.translated = await response.text(); }
-        else {
-          const jsn = await response.json();
-          this.translated = jsn[0][0][0];
+        const url = `https://translate.googleapis.com/translate_a/single?dt=t&dt=bd&dt=qc&dt=rm&dt=ex&client=gtx&hl=ja&sl=auto&tl=ja&q=${encodeURI(text)}&dj=1`;
+        // const body = text;
+        // const headers = { 'Content-Type': 'text/plain' };
+        const response = await fetch(url);
+        const json = await response.json();
+        this.translated = '';
+        for (const result of json.sentences) {
+          if (result.trans) { this.translated += result.trans; }
         }
         this.apiError = false;
       } catch (e) {
-        this.translated = "error occured with translate api.";
-        this.apiError   = true;
+        this.translated = 'error occured with translate api.';
+        this.apiError = true;
       }
-      return;
     },
     /**
      * make word array to fetch from DB
@@ -122,7 +115,7 @@ export default {
      * @param {String} str
      */
     makeSearchWords(str) {
-      if (str.split(" ").length !== 1) { return [str]; }
+      if (str.split(' ').length !== 1) { return [str]; }
       const words = [str];
       const stemmed = stemmer(str);
       if (!words.includes(stemmed)) { words.push(stemmed); }
@@ -137,9 +130,9 @@ export default {
      */
     async searchDict(str) {
       const searchWords = this.makeSearchWords(str);
-      const values = await new Promise(resolve => chrome.storage.local.get(searchWords, resolve));
+      const values = await new Promise((resolve) => chrome.storage.local.get(searchWords, resolve));
       if (Object.keys(values).length) {
-        return Object.values(values).map(e => JSON.parse(e));
+        return Object.values(values).map((e) => JSON.parse(e));
       }
       return null;
     },
@@ -150,34 +143,33 @@ export default {
      */
     async setResultFromDict(results) {
       for (const wordData of results) {
-      for (const word of Object.keys(wordData)) {
-        this.resFromDict.push({
-          word,
-          mean: wordData[word]
-        });
+        for (const word of Object.keys(wordData)) {
+          this.resFromDict.push({
+            word,
+            mean: wordData[word],
+          });
 
-        // check for linked words
-        for (const info of wordData[word]) {
-          const hasLinkedWord = info.mean.match(/<→(.+)>/);
-          if (hasLinkedWord){
-            const linkedWord = hasLinkedWord[1];
-            const linkedWordResult = await this.searchDict(linkedWord);
-            if (!linkedWordResult) { continue; }
-            await this.setResultFromDict(linkedWordResult);
+          // check for linked words
+          for (const info of wordData[word]) {
+            const hasLinkedWord = info.mean.match(/<→(.+)>/);
+            if (hasLinkedWord) {
+              const linkedWord = hasLinkedWord[1];
+              const linkedWordResult = await this.searchDict(linkedWord);
+              if (!linkedWordResult) { continue; }
+              await this.setResultFromDict(linkedWordResult);
+            }
           }
         }
       }
-      }
-      return;
     },
     /**
      * reset scroll position of translator div
      */
     resetScroll() {
       this.$refs.mainElement.scrollTop = 0;
-    }
+    },
 
-  }
+  },
 };
 </script>
 

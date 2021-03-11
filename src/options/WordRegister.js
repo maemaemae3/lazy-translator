@@ -1,9 +1,9 @@
 export default class WordRegister {
-  constructor(updateProgress, chunk_size) {
+  constructor(updateProgress, chunkSize) {
     this.chunk = {}; // chunk to register to storage
-    this.chunk_size = chunk_size ? chunk_size : 1000;
+    this.chunkSize = chunkSize || 1000;
 
-    this.reg_data = {};
+    this.regData = {};
     this.updateProgress = updateProgress;
   }
 
@@ -13,22 +13,23 @@ export default class WordRegister {
    * @param {[String]} lines string data splitted by line break
    */
   async register(lines) {
-    this.updateProgress("データを作成中...");
+    this.updateProgress('データを作成中...');
     this.makeRegData(lines);
 
-    this.updateProgress("データを登録中...");
+    this.updateProgress('データを登録中...');
     let count = 0;
-    for (let w of Object.keys(this.reg_data)) {
-      this.chunk[w] = this.reg_data[w];
-      if (++count % this.chunk_size === 0) {
-        await new Promise(resolve => chrome.storage.local.set(this.chunk, resolve));
-        this.updateProgress("データを登録中... ", count + "単語を登録しました");
+    for (const w of Object.keys(this.regData)) {
+      this.chunk[w] = this.regData[w];
+      count += 1;
+      if (count % this.chunkSize === 0) {
+        await new Promise((resolve) => chrome.storage.local.set(this.chunk, resolve));
+        this.updateProgress('データを登録中... ', `${count}単語を登録しました`);
         this.chunk = {};
       }
     }
     // register left words
-    await new Promise(resolve => chrome.storage.local.set(this.chunk, resolve));
-    this.updateProgress("登録完了！", count + "単語を登録しました");
+    await new Promise((resolve) => chrome.storage.local.set(this.chunk, resolve));
+    this.updateProgress('登録完了！', `${count}単語を登録しました`);
   }
 
   /**
@@ -38,33 +39,34 @@ export default class WordRegister {
    */
   makeRegData(lines) {
     let count = 0;
-    for (let line of lines) {
+    for (const line of lines) {
       const [word, info] = this.parse(line); // parse string to word and its meaning
-      if (!word) { continue; }               // if parse is failed, skip
+      if (!word) { continue; } // if parse is failed, skip
 
-      const reg_word = word.toLowerCase();
-      if (this.reg_data.hasOwnProperty(reg_word)) {
-        this.assignDictData(reg_word, word, info);
+      const regWord = word.toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(this.regData, regWord)) {
+        this.assignDictData(regWord, word, info);
       } else {
-        this.reg_data[reg_word] = {[word]: info};
+        this.regData[regWord] = { [word]: info };
       }
 
-      if (++count % 100000 === 0) { this.updateProgress("データを作成中... ", count + "行を処理しました"); }
+      count += 1;
+      if (count % 100000 === 0) { this.updateProgress('データを作成中... ', `${count}行を処理しました`); }
     }
     // stringify (because when word is "constructor", it causes bug)
-    for (let w of Object.keys(this.reg_data)) { this.reg_data[w] = JSON.stringify(this.reg_data[w]); }
+    for (const w of Object.keys(this.regData)) { this.regData[w] = JSON.stringify(this.regData[w]); }
   }
 
   /**
-   * @param {String} reg_word word id
+   * @param {String} regWord word id
    * @param {String} word     display word
-   * @param {{variant: [{part: String, mean: String}]}} word_data
+   * @param {{variant: [{part: String, mean: String}]}} wordData
    */
-  assignDictData(reg_word, word, word_data) {
-    if (this.reg_data[reg_word].hasOwnProperty(word)) {
-      this.reg_data[reg_word][word].push(...word_data);
+  assignDictData(regWord, word, wordData) {
+    if (Object.prototype.hasOwnProperty.call(this.regData[regWord], word)) {
+      this.regData[regWord][word].push(...wordData);
     } else {
-      Object.assign(this.reg_data[reg_word], {[word]: word_data});
+      Object.assign(this.regData[regWord], { [word]: wordData });
     }
   }
 
@@ -73,25 +75,25 @@ export default class WordRegister {
    */
   parse(str) {
     // parse EIJIRO data
-    const pattern_eijiro_1 = str.match(/■(.*)  \{(.*)\} : (.*)/);
-    if (pattern_eijiro_1) {
-      const word  = pattern_eijiro_1[1];
-      const part  = pattern_eijiro_1[2];
-      const _mean = pattern_eijiro_1[3];
-      const mean  = (/→/.test(_mean)) ? this.setLinkEijiro(_mean) : _mean;
-      return [word, [{part, mean}]];
+    const patternEijiro1 = str.match(/■(.*) {2}\{(.*)\} : (.*)/);
+    if (patternEijiro1) {
+      const word = patternEijiro1[1];
+      const part = patternEijiro1[2];
+      const meanStr = patternEijiro1[3];
+      const mean = (/→/.test(meanStr)) ? WordRegister.setLinkEijiro(meanStr) : meanStr;
+      return [word, [{ part, mean }]];
     }
-    const pattern_eijiro_2 = str.match(/■(.*) : (.*)/);
-    if (pattern_eijiro_2) {
-      const word  = pattern_eijiro_2[1];
-      const _mean = pattern_eijiro_2[2];
-      const mean  = (/→/.test(_mean)) ? this.setLinkEijiro(_mean) : _mean;
-      return [word, [{mean}]];
+    const patternEijiro2 = str.match(/■(.*) : (.*)/);
+    if (patternEijiro2) {
+      const word = patternEijiro2[1];
+      const meanStr = patternEijiro2[2];
+      const mean = (/→/.test(meanStr)) ? WordRegister.setLinkEijiro(meanStr) : meanStr;
+      return [word, [{ mean }]];
     }
-    const pattern_ejdic = str.match(/(.+)\t(.+)/);
-    if (pattern_ejdic) {
-      const word  = pattern_ejdic[1];
-      const means = pattern_ejdic[2].split(" / ").map(this.cleanseEjdic); // "A / =B / C" => [{mean: "A"}, {mean: "<→B>"}, {mean: "C"}]
+    const patternEjdic = str.match(/(.+)\t(.+)/);
+    if (patternEjdic) {
+      const word = patternEjdic[1];
+      const means = patternEjdic[2].split(' / ').map(WordRegister.cleanseEjdic.bind(this)); // "A / =B / C" => [{mean: "A"}, {mean: "<→B>"}, {mean: "C"}]
       return [word, means];
     }
     return [null, null];
@@ -102,9 +104,9 @@ export default class WordRegister {
    *
    * @param {*} str
    */
-  setLinkEijiro(str) {
+  static setLinkEijiro(str) {
     if (/<→.+>/.test(str)) { return str; }
-    return str.replace(/→.+/, s => "<" + s + ">");
+    return str.replace(/→.+/, (s) => `<${s}>`);
   }
 
   /**
@@ -114,9 +116,9 @@ export default class WordRegister {
    *
    * @param {*} str
    */
-  cleanseEjdic(str) {
+  static cleanseEjdic(str) {
     const trimmed = str.trim();
     if (!(/=.+/.test(trimmed))) { return { mean: str }; }
-    return { mean: trimmed.replace(/=(.+)/, (_, part) => "<→" + part + ">") };
+    return { mean: trimmed.replace(/=(.+)/, (_, part) => `<→${part}>`) };
   }
 }
