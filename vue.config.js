@@ -22,4 +22,5 @@ module.exports = {
       },
     },
   },
+  filenameHashing: false,
 };
