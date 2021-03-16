@@ -62,18 +62,30 @@ export default {
     async clearDict() {
       // remember current settings
       let isExtensionOn = true;
+      let contentWidth = 400;
+      let contentHeight = 30;
       await new Promise((resolve) => {
-        chrome.storage.local.get('isExtensionOn', (value) => {
-          if (value.isExtensionOn) {
-            isExtensionOn = value.isExtensionOn;
-            resolve();
+        chrome.storage.local.get(['LazyTranslator_isExtensionOn', 'LazyTranslator_ContentWidth', 'LazyTranslator_ContentHeight'], (value) => {
+          if (value.LazyTranslator_isExtensionOn) {
+            isExtensionOn = value.LazyTranslator_isExtensionOn;
           }
+          if (value.LazyTranslator_ContentWidth) {
+            contentWidth = value.LazyTranslator_ContentWidth;
+          }
+          if (value.LazyTranslator_ContentHeight) {
+            contentHeight = value.LazyTranslator_ContentHeight;
+          }
+          resolve();
         });
       });
       // clear local storage
       chrome.storage.local.clear();
       // restore settings
-      chrome.storage.local.set({ isExtensionOn });
+      chrome.storage.local.set({
+        LazyTranslator_isExtensionOn: isExtensionOn,
+        LazyTranslator_ContentWidth: contentWidth,
+        LazyTranslator_ContentHeight: contentHeight,
+      });
       this.updateProgress('辞書データを削除しました');
       // close modal
       this.modal = false;

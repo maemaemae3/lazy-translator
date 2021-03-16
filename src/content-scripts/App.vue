@@ -1,16 +1,19 @@
 <template>
-  <div ref="mainElement" id="lazy_inner" :class="{show, 'mode-translate': (mode === 'translate'), 'mode-dict': (mode === 'dict')}">
-    <template v-if="mode === 'dict'">
-      <div class="result" v-for="info of resFromDict" :key="'v-' + info.word">
-        <span class="entry">{{ info.word }}</span>
-        <div class="info" v-for="mean of info.mean" :key="mean.mean">
-          <span v-if="mean.part" class="part">{{"\{"}}{{ mean.part }}{{"\}"}}</span> <span class="mean">{{ mean.mean }}</span>
+  <div v-show="isInitialized" ref="container" id="lazy-translator-container">
+    <div ref="resizer" id="lazy-translator-resizer" @mousedown.prevent="resizeStart"/>
+    <div ref="content" id="lazy-translator-contents" :class="{'mode-translate': (mode === 'translate'), 'mode-dict': (mode === 'dict')}">
+      <template v-if="mode === 'dict'">
+        <div class="result" v-for="info of resFromDict" :key="'v-' + info.word">
+          <span class="entry">{{ info.word }}</span>
+          <div class="info" v-for="mean of info.mean" :key="mean.mean">
+            <span v-if="mean.part" class="part">{{"\{"}}{{ mean.part }}{{"\}"}}</span> <span class="mean">{{ mean.mean }}</span>
+          </div>
         </div>
-      </div>
-    </template>
-    <template v-else-if="mode === 'translate'">
-      <span class="mean">{{ translated }}</span>
-    </template>
+      </template>
+      <template v-else-if="mode === 'translate'">
+        <span class="mean">{{ translated }}</span>
+      </template>
+    </div>
   </div>
 </template>
 
@@ -22,37 +25,86 @@ export default {
   data() {
     return {
       isEnabled: true,
+      isInitialized: false,
+      isResizing: false,
       show: false,
       mode: null,
       resFromDict: [],
       translated: '',
       apiError: false,
+      contentWidth: 400,
+      contentHeight: 30,
+      contentPadding: 20,
+      contentBorder: 6,
+      resizerRadius: 5,
     };
   },
+  computed: {
+    resizerPositionLeft() {
+      return this.contentWidth + this.contentPadding + this.contentBorder - this.resizerRadius;
+    },
+    resizerPositionBottom() {
+      return this.contentHeight + this.contentPadding - this.resizerRadius;
+    },
+  },
+  watch: {
+    show(newValue) {
+      this.updateContainerShowStatus(newValue);
+    },
+  },
   created() {
-    // check if extension is turned ON
-    chrome.storage.local.get('isExtensionOn', (res) => {
-      this.isEnabled = res.isExtensionOn === 1;
-    });
+    this.fetchAndApplyExtensionDataFromStorage();
     this.setListeners();
   },
   mounted() {
     browser.runtime.onMessage.addListener((req) => {
       if (req.func === 'toggleMode') {
-        this.show = false; // hide
+        this.show = false;
         this.isEnabled = req.data.isEnabled;
       }
     });
+    this.updatePositionStyle();
+    this.updateContainerShowStatus();
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target.nodeName !== 'BODY') { return; }
+        if (!this.contentWidth || !this.contentHeight) { return; }
+        // even if window size is resized smaller than lazytranslator element, keep resizer visible
+        // after window getting bigger than lazytranslator element, reset resizer position
+        if ((this.contentWidth + this.contentPadding + this.contentBorder) > document.body.clientWidth) {
+          this.$refs.resizer.style.left = `${document.body.clientWidth - 20}px`;
+        } else {
+          this.$refs.resizer.style.left = `${this.resizerPositionLeft}px`;
+        }
+        if ((this.contentHeight + this.contentPadding) > window.innerHeight) {
+          this.$refs.resizer.style.bottom = `${window.innerHeight - 20}px`;
+        } else {
+          this.$refs.resizer.style.bottom = `${this.resizerPositionBottom}px`;
+        }
+      }
+    });
+    resizeObserver.observe(document.body);
+
+    // consider initialize time to calculate contents height and hide it
+    setTimeout(() => {
+      this.isInitialized = true;
+    }, 100);
   },
   methods: {
     setListeners() {
       window.addEventListener('mouseup', () => {
+        if (this.isResizing) { return; }
         const selectedString = this.getSelected();
         this.check(selectedString);
       });
       window.addEventListener('message', (e) => {
-        if (e.data.extension === 'lazyTranslator') {
-          this.check(e.data.selectedString);
+        if (!e.data || (e.data.extension !== 'lazyTranslator')) { return; }
+        if (e.data.selectedString) { this.check(e.data.selectedString); }
+        if (e.data.contentWidth || e.data.contentHeight) {
+          this.contentWidth = e.data.contentWidth || this.contentWidth;
+          this.contentHeight = e.data.contentHeight || this.contentHeight;
+          this.updatePositionStyle();
         }
       });
     },
@@ -95,8 +147,6 @@ export default {
     async setResultFromTranslateApi(text) {
       try {
         const url = `https://translate.googleapis.com/translate_a/single?dt=t&dt=bd&dt=qc&dt=rm&dt=ex&client=gtx&hl=ja&sl=auto&tl=ja&q=${encodeURI(text)}&dj=1`;
-        // const body = text;
-        // const headers = { 'Content-Type': 'text/plain' };
         const response = await fetch(url);
         const json = await response.json();
         this.translated = '';
@@ -166,36 +216,82 @@ export default {
      * reset scroll position of translator div
      */
     resetScroll() {
-      this.$refs.mainElement.scrollTop = 0;
+      this.$refs.content.scrollTop = 0;
     },
+    resizeStart() {
+      document.onmousemove = this.resize;
+      document.onmouseup = this.resizeEnd;
+      this.isResizing = true;
+    },
+    resize(e) {
+      this.contentWidth = e.clientX - this.contentPadding - this.contentBorder - this.resizerRadius;
+      this.contentHeight = window.innerHeight - e.clientY - this.contentPadding - this.resizerRadius;
+      this.updatePositionStyle();
+    },
+    resizeEnd() {
+      document.onmousemove = null;
+      document.onmouseup = null;
+      // avoid mouseup event firing by resizing content
+      setTimeout(() => {
+        this.isResizing = false;
+      }, 100);
+    },
+    fetchAndApplyExtensionDataFromStorage() {
+      chrome.storage.local.get(['LazyTranslator_isExtensionOn', 'LazyTranslator_ContentWidth', 'LazyTranslator_ContentHeight'], (res) => {
+        this.isEnabled = res.LazyTranslator_isExtensionOn === 1;
+        if (!res.LazyTranslator_ContentWidth || !res.LazyTranslator_ContentHeight) { return; }
+        this.contentWidth = res.LazyTranslator_ContentWidth;
+        this.contentHeight = res.LazyTranslator_ContentHeight;
+        this.updatePositionStyle();
+        this.updateContainerShowStatus();
+      });
+    },
+    updatePositionStyle() {
+      this.$refs.content.style.width = `${this.contentWidth}px`;
+      this.$refs.content.style.height = `${this.contentHeight}px`;
+      this.$refs.resizer.style.left = `${this.resizerPositionLeft}px`;
+      this.$refs.resizer.style.bottom = `${this.resizerPositionBottom}px`;
 
+      if (!this.contentWidth || !this.contentHeight) { return; }
+      chrome.storage.local.set({
+        LazyTranslator_ContentWidth: this.contentWidth,
+        LazyTranslator_ContentHeight: this.contentHeight,
+      });
+    },
+    updateContainerShowStatus(value = false) {
+      if (value) {
+        this.$refs.container.style.bottom = '0px';
+      } else {
+        this.$refs.container.style.bottom = `${-this.contentHeight - 30}px`;
+      }
+    },
   },
 };
 </script>
 
 <style lang="scss" scoped>
-#lazy_inner {
-  all: initial;
+#lazy-translator-container {
+  all: revert;
   position: fixed;
+  z-index: 2147483647;
+  transition: bottom 0.1s;
   left: 0px;
-  bottom: calc(-20% - 30px);
-  max-height: 20%;
-  min-width: 50%;
-  max-width: 90%;
+}
+
+#lazy-translator-contents {
   padding: 10px;
   margin: 10px;
-  font-size: 12px;
-  font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
-  color: #000;
   background: rgba(240, 240, 240, 0.9);
   box-shadow: 0px 2px 3px rgba(0, 0, 0, 0.33);
-  z-index: 2147483647;
   overflow-y: scroll;
   scrollbar-width: thin;
   scrollbar-color: #5bb7ae;
-  transition-duration: 0.1s;
-  &.show {
-    bottom: 0px;
+  transition: bottom 0.1s;
+  line-height: 1;
+  > span {
+    font-size: 12px;
+    font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+    color: #000;
   }
   &.mode-translate {
     border-left: solid 6px #5bb7ae;
@@ -222,5 +318,14 @@ export default {
     font-size: 18px;
     font-weight: bold;
   }
+}
+
+#lazy-translator-resizer {
+  position: absolute;
+  cursor: nesw-resize;
+  width: 15px;
+  height: 15px;
+  background-image: url('data:image/svg+xml;charset=utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20512%20512%22%20style%3D%22height%3A300px%3Bwidth%3A300px%22%3E%3Crect%20y%3D%2215.6%22%20x%3D%2210%22%20height%3D%22485.1%22%20width%3D%22489.7%22%20style%3D%22fill%3A%23f0f0f0%3Bstroke-width%3A0.6%3Bstroke%3A%23000%22%2F%3E%3Cpolygon%20class%3D%22st0%22%20points%3D%22325.1%20234.1%20398.4%20160.7%20432.1%20194.4%20432.1%2079.9%20317.6%2079.9%20351.3%20113.6%20278%20186.9%20%22%20transform%3D%22matrix(1.2115825%200%200%201.2115825%20-97.597231%20-17.140686)%22%2F%3E%3Cpolygon%20class%3D%22st0%22%20points%3D%22194.4%20432.2%20160.7%20398.4%20234%20325.1%20186.9%20278%20113.6%20351.3%2079.8%20317.6%2079.8%20432.2%20%22%20transform%3D%22matrix(1.2115825%200%200%201.2115825%20-31.271927%20-77.858042)%22%2F%3E%3Cpath%20class%3D%22st0%22%20d%3D%22M0%200v512h512v-12.8V0H0zM486.3%20486.3H25.7V25.7h460.6V486.3z%22%20stroke%3D%22%23000%22%2F%3E%3C%2Fsvg%3E');
+  background-size: 15px 15px;
 }
 </style>
