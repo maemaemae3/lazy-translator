@@ -20,6 +20,14 @@ module.exports = {
           },
         },
       },
+      // avoid error in development build
+      manifestTransformer: (manifest) => {
+        console.log(manifest);
+        if (process.env.NODE_ENV === 'development') {
+          manifest.content_scripts[0].css.pop();
+        }
+        return manifest;
+      },
     },
   },
   filenameHashing: false,
