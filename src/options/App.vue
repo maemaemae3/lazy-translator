@@ -63,7 +63,7 @@ export default {
       // remember current settings
       let isExtensionOn = true;
       let contentWidth = 400;
-      let contentHeight = 30;
+      let contentMaxHeight = 30;
       await new Promise((resolve) => {
         chrome.storage.local.get(['LazyTranslator_isExtensionOn', 'LazyTranslator_ContentWidth', 'LazyTranslator_ContentHeight'], (value) => {
           if (value.LazyTranslator_isExtensionOn) {
@@ -73,7 +73,7 @@ export default {
             contentWidth = value.LazyTranslator_ContentWidth;
           }
           if (value.LazyTranslator_ContentHeight) {
-            contentHeight = value.LazyTranslator_ContentHeight;
+            contentMaxHeight = value.LazyTranslator_ContentHeight;
           }
           resolve();
         });
@@ -84,7 +84,7 @@ export default {
       chrome.storage.local.set({
         LazyTranslator_isExtensionOn: isExtensionOn,
         LazyTranslator_ContentWidth: contentWidth,
-        LazyTranslator_ContentHeight: contentHeight,
+        LazyTranslator_ContentHeight: contentMaxHeight,
       });
       this.updateProgress('辞書データを削除しました');
       // close modal

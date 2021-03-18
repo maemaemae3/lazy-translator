@@ -1,6 +1,6 @@
 {
   "name": "lazy-translator",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "extension that translates and lookup imported dictionary",
   "author": "tempe",
   "license": "MIT",

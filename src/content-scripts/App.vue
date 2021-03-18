@@ -1,5 +1,6 @@
 <template>
   <div v-show="isInitialized" ref="container" id="lazy-translator-container">
+    <div v-if="isResizing" ref="resizeGuide" id="lazy-translator-resize-guide">最大表示範囲</div>
     <div ref="resizer" id="lazy-translator-resizer" @mousedown.prevent="resizeStart"/>
     <div ref="content" id="lazy-translator-contents" :class="{'mode-translate': (mode === 'translate'), 'mode-dict': (mode === 'dict')}">
       <template v-if="mode === 'dict'">
@@ -33,19 +34,10 @@ export default {
       translated: '',
       apiError: false,
       contentWidth: 400,
-      contentHeight: 30,
-      contentPadding: 20,
-      contentBorder: 6,
-      resizerRadius: 5,
+      contentMaxHeight: 30,
+      contentMargin: 10,
+      resizerRadius: 7,
     };
-  },
-  computed: {
-    resizerPositionLeft() {
-      return this.contentWidth + this.contentPadding + this.contentBorder - this.resizerRadius;
-    },
-    resizerPositionBottom() {
-      return this.contentHeight + this.contentPadding - this.resizerRadius;
-    },
   },
   watch: {
     show(newValue) {
@@ -65,22 +57,25 @@ export default {
     });
     this.updatePositionStyle();
     this.updateContainerShowStatus();
+    this.$refs.resizer.style.right = `${this.contentMargin}px`;
+    this.$refs.resizer.style.top = `${this.contentMargin}px`;
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.target.nodeName !== 'BODY') { return; }
-        if (!this.contentWidth || !this.contentHeight) { return; }
+        if (!this.contentWidth || !this.contentMaxHeight) { return; }
         // even if window size is resized smaller than lazytranslator element, keep resizer visible
         // after window getting bigger than lazytranslator element, reset resizer position
-        if ((this.contentWidth + this.contentPadding + this.contentBorder) > document.body.clientWidth) {
-          this.$refs.resizer.style.left = `${document.body.clientWidth - 20}px`;
+        if (this.contentWidth > document.body.clientWidth) {
+          this.$refs.resizer.style.right = `${this.contentWidth - document.body.clientWidth + 20}px`;
         } else {
-          this.$refs.resizer.style.left = `${this.resizerPositionLeft}px`;
+          this.$refs.resizer.style.right = `${this.contentMargin}px`;
         }
-        if ((this.contentHeight + this.contentPadding) > window.innerHeight) {
-          this.$refs.resizer.style.bottom = `${window.innerHeight - 20}px`;
+        const contentHeight = this.$refs.content.offsetHeight;
+        if ((contentHeight + (this.contentMargin * 2)) > document.documentElement.clientHeight) {
+          this.$refs.resizer.style.top = `${contentHeight - document.documentElement.clientHeight + 20}px`;
         } else {
-          this.$refs.resizer.style.bottom = `${this.resizerPositionBottom}px`;
+          this.$refs.resizer.style.top = `${this.contentMargin}px`;
         }
       }
     });
@@ -101,9 +96,9 @@ export default {
       window.addEventListener('message', (e) => {
         if (!e.data || (e.data.extension !== 'lazyTranslator')) { return; }
         if (e.data.selectedString) { this.check(e.data.selectedString); }
-        if (e.data.contentWidth || e.data.contentHeight) {
+        if (e.data.contentWidth || e.data.contentMaxHeight) {
           this.contentWidth = e.data.contentWidth || this.contentWidth;
-          this.contentHeight = e.data.contentHeight || this.contentHeight;
+          this.contentMaxHeight = e.data.contentMaxHeight || this.contentMaxHeight;
           this.updatePositionStyle();
         }
       });
@@ -146,12 +141,20 @@ export default {
      */
     async setResultFromTranslateApi(text) {
       try {
-        const url = `https://translate.googleapis.com/translate_a/single?dt=t&dt=bd&dt=qc&dt=rm&dt=ex&client=gtx&hl=ja&sl=auto&tl=ja&q=${encodeURI(text)}&dj=1`;
+        const url = `https://translate.googleapis.com/translate_a/single?dt=t&dt=bd&dt=qc&dt=rm&dt=ex&client=gtx&hl=ja&sl=auto&tl=ja&q=${encodeURIComponent(text)}&dj=1`;
         const response = await fetch(url);
         const json = await response.json();
         this.translated = '';
-        for (const result of json.sentences) {
-          if (result.trans) { this.translated += result.trans; }
+        if (json.sentences) { // pattern 1 from translate api, which has result in json.sentences
+          for (const result of json.sentences) {
+            if (result.trans) { this.translated += result.trans; }
+          }
+        } else if (Array.isArray(json)) {
+          for (const result of json[0]) {
+            if (result[0]) { this.translated += result[0]; }
+          }
+        } else {
+          throw new Error('error');
         }
         this.apiError = false;
       } catch (e) {
@@ -224,8 +227,10 @@ export default {
       this.isResizing = true;
     },
     resize(e) {
-      this.contentWidth = e.clientX - this.contentPadding - this.contentBorder - this.resizerRadius;
-      this.contentHeight = window.innerHeight - e.clientY - this.contentPadding - this.resizerRadius;
+      this.contentWidth = e.clientX - this.contentMargin + this.resizerRadius;
+      this.contentMaxHeight = document.documentElement.clientHeight - e.clientY - this.contentMargin + this.resizerRadius;
+      this.$refs.resizeGuide.style.width = `${this.contentWidth}px`;
+      this.$refs.resizeGuide.style.height = `${this.contentMaxHeight}px`;
       this.updatePositionStyle();
     },
     resizeEnd() {
@@ -241,28 +246,26 @@ export default {
         this.isEnabled = res.LazyTranslator_isExtensionOn === 1;
         if (!res.LazyTranslator_ContentWidth || !res.LazyTranslator_ContentHeight) { return; }
         this.contentWidth = res.LazyTranslator_ContentWidth;
-        this.contentHeight = res.LazyTranslator_ContentHeight;
+        this.contentMaxHeight = res.LazyTranslator_ContentHeight;
         this.updatePositionStyle();
         this.updateContainerShowStatus();
       });
     },
     updatePositionStyle() {
       this.$refs.content.style.width = `${this.contentWidth}px`;
-      this.$refs.content.style.height = `${this.contentHeight}px`;
-      this.$refs.resizer.style.left = `${this.resizerPositionLeft}px`;
-      this.$refs.resizer.style.bottom = `${this.resizerPositionBottom}px`;
+      this.$refs.content.style['max-height'] = `${this.contentMaxHeight}px`;
 
-      if (!this.contentWidth || !this.contentHeight) { return; }
+      if (!this.contentWidth || !this.contentMaxHeight) { return; }
       chrome.storage.local.set({
         LazyTranslator_ContentWidth: this.contentWidth,
-        LazyTranslator_ContentHeight: this.contentHeight,
+        LazyTranslator_ContentHeight: this.contentMaxHeight,
       });
     },
     updateContainerShowStatus(value = false) {
       if (value) {
         this.$refs.container.style.bottom = '0px';
       } else {
-        this.$refs.container.style.bottom = `${-this.contentHeight - 30}px`;
+        this.$refs.container.style.bottom = `${-this.contentMaxHeight - 30}px`;
       }
     },
   },
@@ -271,7 +274,7 @@ export default {
 
 <style lang="scss" scoped>
 #lazy-translator-container {
-  all: revert;
+  all: initial;
   position: fixed;
   z-index: 2147483647;
   transition: bottom 0.1s;
@@ -283,12 +286,13 @@ export default {
   margin: 10px;
   background: rgba(240, 240, 240, 0.9);
   box-shadow: 0px 2px 3px rgba(0, 0, 0, 0.33);
+  box-sizing: border-box;
   overflow-y: scroll;
   scrollbar-width: thin;
   scrollbar-color: #5bb7ae;
   transition: bottom 0.1s;
   line-height: 1;
-  > span {
+  span {
     font-size: 12px;
     font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
     color: #000;
@@ -318,6 +322,17 @@ export default {
     font-size: 18px;
     font-weight: bold;
   }
+}
+
+#lazy-translator-resize-guide {
+  position: absolute;
+  bottom: 0;
+  opacity: 0.5;
+  padding: 10px;
+  margin: 10px;
+  text-align: right;
+  box-sizing: border-box;
+  background: rgba(240, 240, 240, 1.0);
 }
 
 #lazy-translator-resizer {
