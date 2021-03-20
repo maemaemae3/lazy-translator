@@ -3,6 +3,11 @@
 翻訳と辞書引きの両方ができる拡張機能です
 ![a.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/264764/01356cc8-faf4-0e00-b2ec-88ca96aed2c5.gif)
 
+# install
+[Chrome ウェブストア](https://chrome.google.com/webstore/detail/lazytranslator/icopppeohpnnliligpcnikdgjefmhbin?hl=ja)
+
+[Firefox Addons](https://addons.mozilla.org/ja/firefox/addon/lazytranslator/)
+
 # 📝Requirements
 ```
 - Node.js 14.15.4 or later
