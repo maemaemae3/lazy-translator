@@ -14,7 +14,7 @@ export default class FileRead {
 
       r.onload = (e) => {
         if (e.target.error) {
-          console.log(`Read error: ${e.target.error}`);
+          // console.log(`Read error: ${e.target.error}`);
           reject(e);
           return;
         }
@@ -37,7 +37,6 @@ export default class FileRead {
         }
         const codes = new Uint8Array(e.target.result);
         const encoding = Encoding.detect(codes);
-        console.log(encoding);
         if (encoding === 'UTF8') { return resolve('UTF-8'); }
         if (encoding === 'SJIS') { return resolve('Shift_JIS'); }
         return reject(new Error('Read error: can\'t detect encoding'));

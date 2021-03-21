@@ -112,8 +112,6 @@ export default {
         const dictLines = dictText.split('\n');
         await wordReg.register(dictLines);
       } catch (error) {
-        console.log(error);
-        // this.updateProgress('エラー。', '読み込みに失敗しました');
         this.updateProgress('エラー。', error);
       }
       document.getElementById('dic-file').value = '';

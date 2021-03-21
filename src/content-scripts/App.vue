@@ -2,8 +2,8 @@
   <div v-show="isInitialized" ref="container" id="lazy-translator-container">
     <div v-if="isResizing" ref="resizeGuide" id="lazy-translator-resize-guide">最大表示範囲</div>
     <div ref="resizer" id="lazy-translator-resizer" @mousedown.prevent="resizeStart"/>
-    <div ref="content" id="lazy-translator-contents" :class="{'mode-translate': (mode === 'translate'), 'mode-dict': (mode === 'dict')}">
-      <template v-if="mode === 'dict'">
+    <div ref="content" id="lazy-translator-contents" :class="{'mode-translate': (mode === 'translate'), 'mode-dictionary': (mode === 'dictionary')}">
+      <template v-if="mode === 'dictionary'">
         <div class="result" v-for="info of resFromDict" :key="'v-' + info.word">
           <span class="entry">{{ info.word }}</span>
           <div class="info" v-for="mean of info.mean" :key="mean.mean">
@@ -25,12 +25,13 @@ import singularizer from './singularizer';
 export default {
   data() {
     return {
-      isEnabled: true,
+      isEnabled: false,
       isInitialized: false,
       isResizing: false,
       show: false,
       mode: null,
       resFromDict: [],
+      selectedBefore: '',
       translated: '',
       apiError: false,
       contentWidth: 400,
@@ -45,18 +46,17 @@ export default {
     },
   },
   created() {
-    this.fetchAndApplyExtensionDataFromStorage();
     this.setListeners();
   },
-  mounted() {
+  async mounted() {
     browser.runtime.onMessage.addListener((req) => {
       if (req.func === 'toggleMode') {
         this.show = false;
         this.isEnabled = req.data.isEnabled;
       }
     });
-    this.updatePositionStyle();
-    this.updateContainerShowStatus();
+    await this.fetchAndApplyExtensionDataFromStorage();
+    this.isEnabled = true; // after initialized
     this.$refs.resizer.style.right = `${this.contentMargin}px`;
     this.$refs.resizer.style.top = `${this.contentMargin}px`;
 
@@ -89,49 +89,60 @@ export default {
   methods: {
     setListeners() {
       window.addEventListener('mouseup', () => {
-        if (this.isResizing) { return; }
-        const selectedString = this.getSelected();
-        this.check(selectedString);
+        setTimeout(() => {
+          if (this.checkKeepShowingSameState()) { return; }
+          const selectedString = this.getSelectedString();
+          this.translate(selectedString);
+        }, 100);
       });
       window.addEventListener('message', (e) => {
         if (!e.data || (e.data.extension !== 'lazyTranslator')) { return; }
-        if (e.data.selectedString) { this.check(e.data.selectedString); }
-        if (e.data.contentWidth || e.data.contentMaxHeight) {
-          this.contentWidth = e.data.contentWidth || this.contentWidth;
-          this.contentMaxHeight = e.data.contentMaxHeight || this.contentMaxHeight;
-          this.updatePositionStyle();
-        }
+        if (e.data.selectedString) { this.translate(e.data.selectedString); } // data from iframe
+        // sync area size between tabs (TBI)
+        // if (e.data.contentWidth || e.data.contentMaxHeight) {
+        //   this.contentWidth = e.data.contentWidth || this.contentWidth;
+        //   this.contentMaxHeight = e.data.contentMaxHeight || this.contentMaxHeight;
+        //   this.updatePositionStyle(this.contentWidth, this.contentMaxHeight);
+        // }
       });
+    },
+    /**
+     * check to keep extension area showing
+     * @return {Boolean} allow to start process
+     */
+    checkKeepShowingSameState() {
+      if (this.isResizing) { return true; }
+      return this.getSelectedString() === this.selectedBefore;
     },
     /**
      * check selected text and execute main function
      */
-    async check(selectedString) {
+    async translate(selectedString) {
       if (!this.isEnabled) { return; } // if disabled, do nothing
 
       if (!selectedString) {
+        this.selectedBefore = null;
         this.show = false;
         return;
       }
 
+      this.selectedBefore = selectedString;
       this.resetScroll();
 
       const result = await this.searchDict(selectedString);
       if (result) {
         this.resFromDict = [];
-        this.mode = 'dict';
+        this.mode = 'dictionary';
         await this.setResultFromDict(result);
         this.show = true;
       } else {
         this.mode = 'translate';
-        await this.setResultFromTranslateApi(selectedString);
         this.show = true;
+        this.translated = '翻訳中...';
+        await this.setResultFromTranslateApi(selectedString);
       }
     },
-    /**
-     * get selected string
-     */
-    getSelected() {
+    getSelectedString() {
       const selectedString = window.getSelection().toString().toLowerCase().trim();
       if (selectedString) { return selectedString; }
       return null;
@@ -231,42 +242,46 @@ export default {
       this.contentMaxHeight = document.documentElement.clientHeight - e.clientY - this.contentMargin + this.resizerRadius;
       this.$refs.resizeGuide.style.width = `${this.contentWidth}px`;
       this.$refs.resizeGuide.style.height = `${this.contentMaxHeight}px`;
-      this.updatePositionStyle();
+      this.updatePositionStyle(this.contentWidth, this.contentMaxHeight);
     },
     resizeEnd() {
       document.onmousemove = null;
       document.onmouseup = null;
+      this.updateLocalStorage(this.contentWidth, this.contentMaxHeight);
       // avoid mouseup event firing by resizing content
       setTimeout(() => {
         this.isResizing = false;
       }, 100);
     },
     fetchAndApplyExtensionDataFromStorage() {
-      chrome.storage.local.get(['LazyTranslator_isExtensionOn', 'LazyTranslator_ContentWidth', 'LazyTranslator_ContentHeight'], (res) => {
-        this.isEnabled = res.LazyTranslator_isExtensionOn === 1;
-        if (!res.LazyTranslator_ContentWidth || !res.LazyTranslator_ContentHeight) { return; }
-        this.contentWidth = res.LazyTranslator_ContentWidth;
-        this.contentMaxHeight = res.LazyTranslator_ContentHeight;
-        this.updatePositionStyle();
-        this.updateContainerShowStatus();
+      return new Promise((resolve) => {
+        chrome.storage.local.get(['LazyTranslator_isExtensionOn', 'LazyTranslator_ContentWidth', 'LazyTranslator_ContentHeight'], (res) => {
+          this.isEnabled = res.LazyTranslator_isExtensionOn === 1;
+          this.contentWidth = res.LazyTranslator_ContentWidth || this.contentWidth;
+          this.contentMaxHeight = res.LazyTranslator_ContentHeight || this.contentMaxHeight;
+          this.updatePositionStyle(this.contentWidth, this.contentMaxHeight);
+          this.updateContainerShowStatus();
+          return resolve();
+        });
       });
     },
-    updatePositionStyle() {
-      this.$refs.content.style.width = `${this.contentWidth}px`;
-      this.$refs.content.style['max-height'] = `${this.contentMaxHeight}px`;
-
-      if (!this.contentWidth || !this.contentMaxHeight) { return; }
-      chrome.storage.local.set({
-        LazyTranslator_ContentWidth: this.contentWidth,
-        LazyTranslator_ContentHeight: this.contentMaxHeight,
-      });
+    updatePositionStyle(contentWidth, contentMaxHeight) {
+      this.$refs.content.style.width = `${contentWidth}px`;
+      this.$refs.content.style['max-height'] = `${contentMaxHeight}px`;
     },
-    updateContainerShowStatus(value = false) {
-      if (value) {
+    updateContainerShowStatus(show = false) {
+      if (show) {
         this.$refs.container.style.bottom = '0px';
       } else {
         this.$refs.container.style.bottom = `${-this.contentMaxHeight - 30}px`;
       }
+    },
+    updateLocalStorage(contentWidth, contentMaxHeight) {
+      if (!contentWidth || !contentMaxHeight) { return; }
+      chrome.storage.local.set({
+        LazyTranslator_ContentWidth: contentWidth,
+        LazyTranslator_ContentHeight: contentMaxHeight,
+      });
     },
   },
 };
@@ -300,7 +315,7 @@ export default {
   &.mode-translate {
     border-left: solid 6px #5bb7ae;
   }
-  &.mode-dict {
+  &.mode-dictionary {
     border-left: solid 6px #5b92b7;
   }
 
