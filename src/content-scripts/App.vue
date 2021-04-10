@@ -1,18 +1,18 @@
 <template>
-  <div v-show="isInitialized" ref="container" id="lazy-translator-container">
+  <div v-show="isInitialized && isEnabled" ref="container" id="lazy-translator-container">
     <div v-if="isResizing" ref="resizeGuide" id="lazy-translator-resize-guide">最大表示範囲</div>
     <div ref="resizer" id="lazy-translator-resizer" @mousedown.prevent="resizeStart"/>
     <div ref="content" id="lazy-translator-contents" :class="{'mode-translate': (mode === 'translate'), 'mode-dictionary': (mode === 'dictionary')}">
       <template v-if="mode === 'dictionary'">
-        <div class="result" v-for="info of resFromDict" :key="'v-' + info.word">
-          <span class="entry">{{ info.word }}</span>
-          <div class="info" v-for="mean of info.mean" :key="mean.mean">
-            <span v-if="mean.part" class="part">{{"\{"}}{{ mean.part }}{{"\}"}}</span> <span class="mean">{{ mean.mean }}</span>
+        <div class="lazy-translator-result" v-for="info of resFromDict" :key="'v-' + info.word">
+          <div class="lazy-translator-entry">{{ info.word }}</div>
+          <div class="lazy-translator-info" v-for="mean of info.mean" :key="mean.mean">
+            <div v-if="mean.part" class="lazy-translator-part">{{"\{"}}{{ mean.part }}{{"\}"}}</div> <div class="lazy-translator-mean">{{ mean.mean }}</div>
           </div>
         </div>
       </template>
       <template v-else-if="mode === 'translate'">
-        <span class="mean">{{ translated }}</span>
+        <div class="lazy-translator-mean">{{ translated }}</div>
       </template>
     </div>
   </div>
@@ -288,6 +288,11 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+#lazy-translator-container * {
+  height: unset;
+  line-height: unset;
+}
+
 #lazy-translator-container {
   all: initial;
   position: fixed;
@@ -306,8 +311,7 @@ export default {
   scrollbar-width: thin;
   scrollbar-color: #5bb7ae;
   transition: bottom 0.1s;
-  line-height: 1;
-  span {
+  * {
     font-size: 12px;
     font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
     color: #000;
@@ -319,23 +323,28 @@ export default {
     border-left: solid 6px #5b92b7;
   }
 
-  .result {
+  .lazy-translator-result {
     padding-bottom: 5px;
   }
-  .info {
+  .lazy-translator-info {
     border-top: solid 1px #999;
     margin-top: 5px;
     padding-top: 5px;
+    line-height: 1.5;
+    > div {
+      display: inline-block;
+    }
   }
-  .part {
+  .lazy-translator-part {
     color: green;
   }
-  .error {
+  .lazy-translator-error {
     color: red;
   }
-  .entry {
+  .lazy-translator-entry {
     font-size: 18px;
     font-weight: bold;
+    margin-top: 5px;
   }
 }
 
