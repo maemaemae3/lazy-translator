@@ -56,7 +56,6 @@ export default {
       }
     });
     await this.fetchAndApplyExtensionDataFromStorage();
-    this.isEnabled = true; // after initialized
     this.$refs.resizer.style.right = `${this.contentMargin}px`;
     this.$refs.resizer.style.top = `${this.contentMargin}px`;
 
