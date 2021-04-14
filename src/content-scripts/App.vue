@@ -4,9 +4,9 @@
     <div ref="resizer" id="lazy-translator-resizer" @mousedown.prevent="resizeStart"/>
     <div ref="content" id="lazy-translator-contents" :class="{'mode-translate': (mode === 'translate'), 'mode-dictionary': (mode === 'dictionary')}">
       <template v-if="mode === 'dictionary'">
-        <div class="lazy-translator-result" v-for="info of resFromDict" :key="'v-' + info.word">
+        <div class="lazy-translator-result" v-for="(info, resultIndex) of resFromDict" :key="resultIndex">
           <div class="lazy-translator-entry">{{ info.word }}</div>
-          <div class="lazy-translator-info" v-for="mean of info.mean" :key="mean.mean">
+          <div class="lazy-translator-info" v-for="(mean, infoIndex) of info.mean" :key="`${resultIndex}-${infoIndex}`">
             <div v-if="mean.part" class="lazy-translator-part">{{"\{"}}{{ mean.part }}{{"\}"}}</div> <div class="lazy-translator-mean">{{ mean.mean }}</div>
           </div>
         </div>
@@ -129,10 +129,9 @@ export default {
       this.resetScroll();
 
       const result = await this.searchDict(selectedString);
-      if (result) {
-        this.resFromDict = [];
+      if (result.length) {
         this.mode = 'dictionary';
-        await this.setResultFromDict(result);
+        this.resFromDict = result;
         this.show = true;
       } else {
         this.mode = 'translate';
@@ -190,40 +189,46 @@ export default {
      * fetch data from DB
      *
      * @param {String} str
-     */
-    async searchDict(str) {
-      const searchWords = this.makeSearchWords(str);
-      const values = await new Promise((resolve) => chrome.storage.local.get(searchWords, resolve));
-      if (Object.keys(values).length) {
-        return Object.values(values).map((e) => JSON.parse(e));
-      }
-      return null;
-    },
-    /**
-     * get result from dictionary
-     *
+     * @param {[String]} cumulativeSearchWords
      * @param {[{display: [{mean: String}]}]} result
      */
-    async setResultFromDict(results) {
-      for (const wordData of results) {
-        for (const word of Object.keys(wordData)) {
-          this.resFromDict.push({
+    async searchDict(str, cumulativeSearchWords = [], result = []) {
+      const searchWordCandidates = this.makeSearchWords(str);
+      const searchWords = searchWordCandidates.filter((e) => !cumulativeSearchWords.includes(e));
+      if (!searchWords.length) { return result; }
+
+      const fetchedValue = await new Promise((resolve) => chrome.storage.local.get(searchWords, resolve));
+      const wordDataArray = Object.values(fetchedValue).map((e) => JSON.parse(e));
+
+      // sort to bring exact match word to top
+      wordDataArray.sort((wordData) => {
+        const wordKeys = Object.keys(wordData).map((word) => word.toLowerCase());
+        return wordKeys.includes(str) ? -1 : 0;
+      });
+
+      // process each word data
+      for (const wordData of wordDataArray) {
+        const words = Object.keys(wordData);
+        for (const word of words) {
+          // push each data to result
+          result.push({
             word,
             mean: wordData[word],
           });
-
           // check for linked words
           for (const info of wordData[word]) {
             const hasLinkedWord = info.mean.match(/<→(.+)>/);
-            if (hasLinkedWord) {
-              const linkedWord = hasLinkedWord[1];
-              const linkedWordResult = await this.searchDict(linkedWord);
-              if (!linkedWordResult) { continue; }
-              await this.setResultFromDict(linkedWordResult);
-            }
+            if (!hasLinkedWord) { continue; }
+
+            const linkedWord = hasLinkedWord[1];
+            if (cumulativeSearchWords.includes(linkedWord)) { continue; }
+            // get linked words recursively
+            await this.searchDict(linkedWord, [...searchWords, ...cumulativeSearchWords], result);
+            cumulativeSearchWords.push(linkedWord);
           }
         }
       }
+      return result;
     },
     /**
      * reset scroll position of translator div
