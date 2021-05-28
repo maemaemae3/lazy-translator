@@ -34,6 +34,7 @@ export default {
       selectedBefore: '',
       translated: '',
       apiError: false,
+      windowHeight: 0,
       contentWidth: 400,
       contentMaxHeight: 30,
       contentMargin: 10,
@@ -59,6 +60,7 @@ export default {
     this.$refs.resizer.style.right = `${this.contentMargin}px`;
     this.$refs.resizer.style.top = `${this.contentMargin}px`;
 
+    this.updateWindowHeight();
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.target.nodeName !== 'BODY') { return; }
@@ -71,8 +73,8 @@ export default {
           this.$refs.resizer.style.right = `${this.contentMargin}px`;
         }
         const contentHeight = this.$refs.content.offsetHeight;
-        if ((contentHeight + (this.contentMargin * 2)) > document.documentElement.clientHeight) {
-          this.$refs.resizer.style.top = `${contentHeight - document.documentElement.clientHeight + 20}px`;
+        if ((contentHeight + (this.contentMargin * 2)) > this.windowHeight) {
+          this.$refs.resizer.style.top = `${contentHeight - this.windowHeight + 20}px`;
         } else {
           this.$refs.resizer.style.top = `${this.contentMargin}px`;
         }
@@ -240,10 +242,11 @@ export default {
       document.onmousemove = this.resize;
       document.onmouseup = this.resizeEnd;
       this.isResizing = true;
+      this.updateWindowHeight();
     },
     resize(e) {
       this.contentWidth = e.clientX - this.contentMargin + this.resizerRadius;
-      this.contentMaxHeight = document.documentElement.clientHeight - e.clientY - this.contentMargin + this.resizerRadius;
+      this.contentMaxHeight = this.windowHeight - e.clientY - this.contentMargin + this.resizerRadius;
       this.$refs.resizeGuide.style.width = `${this.contentWidth}px`;
       this.$refs.resizeGuide.style.height = `${this.contentMaxHeight}px`;
       this.updatePositionStyle(this.contentWidth, this.contentMaxHeight);
@@ -286,6 +289,9 @@ export default {
         LazyTranslator_ContentWidth: contentWidth,
         LazyTranslator_ContentHeight: contentMaxHeight,
       });
+    },
+    updateWindowHeight() {
+      this.windowHeight = document.compatMode === 'CSS1Compat' ? document.documentElement.clientHeight : document.body.clientHeight;
     },
   },
 };
