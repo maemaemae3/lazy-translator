@@ -36,7 +36,7 @@ export default {
       apiError: false,
       windowHeight: 0,
       contentWidth: 400,
-      contentMaxHeight: 30,
+      contentMaxHeight: 100,
       contentMargin: 10,
       resizerRadius: 7,
     };
