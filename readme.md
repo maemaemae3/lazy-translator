@@ -10,7 +10,7 @@
 
 # 📝Requirements
 ```
-- Node.js 14.15.4 or later
+- Node.js 14.20.0
 ```
 
 # 👩‍🏫使い方
